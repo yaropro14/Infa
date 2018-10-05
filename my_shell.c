@@ -19,46 +19,65 @@ char ** make_argv(char * str, int n_space)
 	char ** argv = calloc (n_space, sizeof(char*));
 	
 	char * t = strdup(str);
-	char * p;
+	char * p = "";
 	
 	while(p)
 	{
 		p = strchr(t, ' ');
+		
+		if (p == NULL)
+		{
+			argv[i] = t;
+			//printf("!!!argv[%d] = %s///\n", i, argv[i]);
+			break;
+		}
+		
 		*p = '\0';
 		argv[i] = t;
+		//printf("argv[%d] = %s;\n", i, argv[i]);
 		i++;
 		t = p + 1;
+		
 	}
-	
-	argv[i] = t;
-	
+	//char *** p_argv = &argv;
 	return  argv;
 }
 
 char ** make_com(char * str, int n_com )
 {
 	int i = 0;
-	
+	//char *** p_com = NULL;
 	char ** com = calloc (n_com, sizeof(char*));
 	
 	char * t = strdup(str);
-	printf("1");
 	char * p = t;
-	printf("1");
-	while(p)
+	
+	while(1)
 	{
-		printf("1");
-		p = strchr(t, '|');
-		*p = '\0';  //         FALLS HERE!!!
+		p = strchr(t, '|'); 
+		
+		if (p == NULL)
+		{
+			com[i] = t;
+			//printf("com[%d] = %s\n", i, com[i]);
+			
+			if((p = strchr(t, ' ')))
+				*p = '\0';
+				
+			if((p = strchr(t, '\n')))
+				*p = '\0';
+				
+			break;
+		}
+		 
+		*p = '\0';
 		com[i] = t;
+		//printf("com[%d] = %s\n", i, com[i]);
 		i++;
 		t = p + 1;
-		printf("i = %d, s = %s\n", i, com[i]);
-		p = NULL;
+		
 	}
-	
-	com[i] = t;
-	
+	//p_com = &com;
 	return  com;
 }
 
@@ -78,12 +97,38 @@ int main ()
 	
 	int n_com = number_com(str);
 	char** com = calloc (n_com, sizeof(char*));
+	
 	com = make_com(str, n_com);
 	
 	for(int i = 0; i < n_com; i++){
+		
+		char word;
+		
+		pid_t pid = fork();
+	
+		int fdt[2] = {0,0};
+		pipe(fdt);
+		
 		int n_space = number_space(str);
 		char** argv = calloc (n_com, sizeof(char*));
-		argv = make_argv(str, n_com);
+		argv = make_argv(com[i], n_com);
+		
+		unsigned int len = 1;
+		while (read(fdt[0], &word, len) != 0) //  Error
+		{
+			int j = 0;
+			argv[n_space + (j++)] = strdup(&word);
+		}
+		
+		if(pid)
+		{
+			close(1);
+			dup(fdt[1]);
+			close(fdt[1]);
+			execv(argv[0], argv);
+			printf("error\n");
+		}
+		
 		//printf("!%s\n", argv[0]);
 		free(argv);
 		break;
