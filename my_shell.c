@@ -14,42 +14,57 @@ int number_space(char * str);
 
 char ** make_argv(char * str, int n_space)
 {
+	
 	int i = 0;
-	
-	char ** argv = calloc (n_space, sizeof(char*));
-	
-	char * t = strdup(str);
-	char * p = "";
-	
-	while(p)
+
+	char ** argv = calloc (n_space + 1, sizeof(char*));
+	for(int j; j <= n_space + 1; j++)
 	{
-		p = strchr(t, ' ');
+		argv[j] = (char*) calloc(strlen(str) + 1,sizeof(char));
+	}
+	
+	
+	char * t = str;
+	char * p = t;
+	
+	while(1)
+	{
+		p = strchr(t,' ');
 		
 		if (p == NULL)
 		{
 			argv[i] = t;
-			//printf("!!!argv[%d] = %s///\n", i, argv[i]);
+			
+			if((p = strchr(t, '\n')))
+				*p = '\0';
+			
+			argv[i+1] = NULL;
+			
 			break;
-		}
+		} 
 		
 		*p = '\0';
 		argv[i] = t;
-		//printf("argv[%d] = %s;\n", i, argv[i]);
 		i++;
 		t = p + 1;
 		
 	}
-	//char *** p_argv = &argv;
+	
 	return  argv;
 }
 
 char ** make_com(char * str, int n_com )
 {
 	int i = 0;
-	//char *** p_com = NULL;
-	char ** com = calloc (n_com, sizeof(char*));
 	
-	char * t = strdup(str);
+	char ** com = calloc (n_com + 1, sizeof(char*));
+	
+	for(int j; j <= n_com + 1; j++)
+	{
+		com[j] = (char*) calloc(strlen(str) + 1,sizeof(char));
+	}
+	
+	char * t = str;
 	char * p = t;
 	
 	while(1)
@@ -59,87 +74,151 @@ char ** make_com(char * str, int n_com )
 		if (p == NULL)
 		{
 			com[i] = t;
-			//printf("com[%d] = %s\n", i, com[i]);
-			
-			if((p = strchr(t, ' ')))
-				*p = '\0';
-				
-			if((p = strchr(t, '\n')))
-				*p = '\0';
-				
+			p = strchr(com[i], '\n');
+			*p = '\0';
 			break;
 		}
-		 
+		
 		*p = '\0';
 		com[i] = t;
-		//printf("com[%d] = %s\n", i, com[i]);
 		i++;
 		t = p + 1;
 		
 	}
-	//p_com = &com;
+	
 	return  com;
 }
 
-int main ()
+int main()
 {
 	int wait_p = 0;
-	
-	size_t len = 0;
-	ssize_t read;
-	
-	printf("my_shel$ ");
-	
+	size_t len = 1;
+	ssize_t r ;
 	char * str = calloc (1000, sizeof(char));
-	read = getline(&str, &len, stdin);
-	
-	//printf("...%s\n", str);
-	
-	int n_com = number_com(str);
-	char** com = calloc (n_com, sizeof(char*));
-	
-	com = make_com(str, n_com);
-	
-	for(int i = 0; i < n_com; i++){
+	printf("my_shell$ ");
+	r = getline(&str, &len, stdin);
+	while(1)
+	{
 		
-		char word;
+		int n_com = number_com(str);
 		
-		pid_t pid = fork();
-	
-		int fdt[2] = {0,0};
-		pipe(fdt);
+		char** com = calloc (n_com, sizeof(char*));
+		com = make_com(str, n_com);
 		
-		int n_space = number_space(str);
-		char** argv = calloc (n_com, sizeof(char*));
-		argv = make_argv(com[i], n_com);
-		
-		unsigned int len = 1;
-		while (read(fdt[0], &word, len) != 0) //  Error
+		if(!(strcmp(com[0], "exit")))
 		{
-			int j = 0;
-			argv[n_space + (j++)] = strdup(&word);
+			break;
 		}
 		
-		if(pid)
+		int i = 0;
+		
+		int fdt1[2] = {0,0};
+			
+		int fdt2[2] = {0,0};
+		
+		pipe(fdt1);
+			
+		pipe(fdt2);
+
+		while(i < n_com)
 		{
-			close(1);
-			dup(fdt[1]);
-			close(fdt[1]);
-			execv(argv[0], argv);
-			printf("error\n");
+			int n_space = number_space(str);
+			char** argv;
+			argv = make_argv(com[i], n_space);
+			
+			//printf("i =%d\n", i);
+			
+			if (i == n_com - 1)
+			{
+				//pipe(fdt);
+				//printf("last\n");
+				
+				close(fdt1[0]);
+				close(fdt1[1]);
+				close(fdt2[0]);
+				
+				fdt1[1] = fdt2[1];
+				
+				close(fdt2[1]);
+				
+				//perror(strerror(errno));
+			}
+			
+			else //               ???
+			{
+				//printf("central\n");
+				close(fdt1[0]);
+				close(fdt1[1]);
+				close(fdt2[0]);
+				fdt1[1] = fdt2[1];
+				
+				//close(fdt2[0]);
+				close(fdt2[1]);
+				
+				pipe(fdt2);
+								
+			}
+			
+			pid_t pid = fork();
+			
+			if(pid == 0)
+			{
+				if (i == n_com - 1)
+				{
+					//pipe(fdt);
+					//printf("last\n");
+					
+
+				}
+				
+				else if(i == 0)//               ???
+				{
+					//pipe(fdt1);
+					//pipe(fdt2);
+					
+					//printf("first\n");
+					//close(fdt2[1]);
+					//close(fdt2[0]);
+					
+					close(1);
+					dup(fdt2[1]);
+					close(fdt2[1]);
+					
+					//perror(strerror(errno));
+				}
+				
+				else //               ???
+				{
+					//printf("central\n");
+
+					close(1);
+					dup(fdt2[1]);
+					close(fdt2[1]);
+					
+					perror(strerror(errno));						
+				}
+				execvp(argv[0], argv);
+				perror(strerror(errno));
+			}
+			
+			else
+			{
+				i++;
+				//free(argv);
+				//free(com);
+			}	
+				
 		}
 		
-		//printf("!%s\n", argv[0]);
-		free(argv);
-		break;
+		wait(0);
+				
+		printf("my_shell$ ");
+				
+		r = getline(&str, &len, stdin);
+		
 	}
-	
-	//printf("?%s\n", com[0]);
-	
-	
-	free(str);
-	free(com);		
-	return 0;
+		return 0;
+
 }
 
 
@@ -153,6 +232,8 @@ int number_space(char * str){
 		str2 = ptr + 1;
 		ptr = strchr (str2, ' ');
 	}
+	
+	//printf("222 %d\n",  n_space);
 	return n_space;
 }
 
@@ -167,5 +248,6 @@ int number_com(char * str){
 		str2 = ptr + 1;
 		ptr = strchr (str2, '|');
 	}
+	//printf("3433 %d\n",  n_com);
 	return n_com;
 }
